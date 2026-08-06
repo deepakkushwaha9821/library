@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@theme {
+  --color-neo-yellow: #facc15;
+  --color-neo-green: #22c55e;
+  --color-neo-lime: #a3e635;
+  --color-neo-cyan: #06b6d4;
+  --color-neo-orange: #f97316;
+  --color-neo-purple: #a855f7;
+  --color-neo-red: #ef4444;
+  --color-neo-cream: #fafaf9;
+}
+
+body {
+  background-color: #f4f0ec;
+  color: #1c1917; /* stone-900 */
+  font-family: 'Outfit', 'Inter', sans-serif;
+  min-height: 100vh;
+  background-image: 
+    radial-gradient(#1c1917 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+  background-attachment: fixed;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f4f0ec;
+  border-left: 3px solid #1c1917;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #facc15;
+  border: 3px solid #1c1917;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #e2b80d;
+}
+
+/* Neo-Brutalism Design Utilities */
+.neo-border {
+  border: 3px solid #1c1917;
+}
+
+.neo-border-lg {
+  border: 4px solid #1c1917;
+}
+
+.neo-shadow {
+  box-shadow: 4px 4px 0px 0px #1c1917;
+}
+
+.neo-shadow-lg {
+  box-shadow: 8px 8px 0px 0px #1c1917;
+}
+
+.neo-shadow-sm {
+  box-shadow: 2px 2px 0px 0px #1c1917;
+}
+
+/* Interactive tactile effects */
+.neo-btn {
+  border: 3px solid #1c1917;
+  box-shadow: 4px 4px 0px 0px #1c1917;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.neo-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px 0px #1c1917;
+}
+
+.neo-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #1c1917;
+}
+
+.neo-card {
+  background: #fafaf9;
+  border: 3px solid #1c1917;
+  box-shadow: 6px 6px 0px 0px #1c1917;
+  transition: all 0.2s ease;
+}
+
+.neo-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px 0px #1c1917;
+}
+
+.text-stroke {
+  -webkit-text-stroke: 1.5px #1c1917;
+}
