@@ -1,15 +1,11 @@
-const { Sequelize } = require('sequelize');
+const { Sequelize } = require("sequelize");
+const Database = require("better-sqlite3");
 
 const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: process.env.SQLITE_PATH || './database.sqlite',
+  dialect: "sqlite",
+  storage: process.env.SQLITE_PATH || "./database.sqlite",
+  dialectModule: Database,
   logging: false,
-  pool: {
-    max: 5,
-    min: 0,
-    acquire: 30000,
-    idle: 10000
-  }
 });
 
 module.exports = sequelize;
