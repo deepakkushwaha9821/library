@@ -21,17 +21,22 @@ const BookDetail = ({ bookId, onBack, onOpenReader, onOpenWallet }) => {
   }, [bookId]);
 
   const fetchBookDetails = async () => {
-    try {
-      setLoading(true);
-      const res = await API.get(`/books/${bookId}`);
-      setBook(res.data.book);
-      setReviews(res.data.reviews || []);
-    } catch (error) {
-      console.error('Error fetching book details:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    console.log("Book ID =", bookId);
+
+    const url = `/books/${bookId}`;
+    console.log("Calling =", url);
+
+    const res = await API.get(url);
+
+    console.log("Response =", res.data);
+
+    setBook(res.data.book);
+    setReviews(res.data.reviews || []);
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const checkOwnership = async () => {
     if (!user) return;
