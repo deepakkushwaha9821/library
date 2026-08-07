@@ -27,10 +27,18 @@ function AppContent() {
     title: ''
   });
 
-  const handleSelectBook = (book) => {
-    setSelectedBookId(book._id);
-    setActiveTab('detail');
-  };
+ const handleSelectBook = (book) => {
+  console.log("Clicked Book:", book);
+
+  const targetId = book.id || book._id;
+
+  console.log("Selected ID:", targetId);
+
+  if (targetId) {
+    setSelectedBookId(targetId);
+    setActiveTab("detail");
+  }
+};
 
   const handleOpenReader = (bookId, title) => {
     setReaderState({
