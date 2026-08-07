@@ -1,15 +1,17 @@
 const User = require('../models/User');
 const WalletTransaction = require('../models/WalletTransaction');
+const Book = require('../models/Book');
+const Purchase = require('../models/Purchase');
 
-// @desc    Get wallet balance + recent transactions
-// @route   GET /api/wallet
 exports.getWallet = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('walletBalance name email');
-    const transactions = await WalletTransaction.find({ user: req.user._id })
-      .populate('relatedBook', 'title coverUrl')
-      .sort({ createdAt: -1 })
-      .limit(30);
+    const user = await User.findByPk(req.user.id, { attributes: ['walletBalance', 'name', 'email'] });
+    const transactions = await WalletTransaction.findAll({
+      where: { userId: req.user.id },
+      include: [{ model: Book, as: 'relatedBook', attributes: ['title', 'coverUrl'] }],
+      order: [['createdAt', 'DESC']],
+      limit: 30
+    });
 
     res.json({
       balance: user.walletBalance,
@@ -20,8 +22,6 @@ exports.getWallet = async (req, res) => {
   }
 };
 
-// @desc    Top up wallet (simulated — in production this would go through Stripe)
-// @route   POST /api/wallet/topup
 exports.topUpWallet = async (req, res) => {
   try {
     const { amount } = req.body;
@@ -31,12 +31,12 @@ exports.topUpWallet = async (req, res) => {
       return res.status(400).json({ message: 'Amount must be between $0.01 and $500.00' });
     }
 
-    const user = await User.findById(req.user._id);
+    const user = await User.findByPk(req.user.id);
     user.walletBalance = Number((user.walletBalance + topupAmount).toFixed(2));
     await user.save();
 
     await WalletTransaction.create({
-      user: req.user._id,
+      userId: req.user.id,
       type: 'topup',
       amount: topupAmount,
       balanceAfter: user.walletBalance,
@@ -53,30 +53,25 @@ exports.topUpWallet = async (req, res) => {
   }
 };
 
-// @desc    Pay for a book using wallet balance
-// @route   POST /api/wallet/pay
 exports.payWithWallet = async (req, res) => {
   try {
     const { bookId, purchaseType } = req.body;
-    const Book = require('../models/Book');
-    const Purchase = require('../models/Purchase');
 
-    const book = await Book.findById(bookId);
+    const book = await Book.findByPk(bookId);
     if (!book) {
       return res.status(404).json({ message: 'Book not found' });
     }
 
     const price = purchaseType === 'rent' ? book.rentPrice : book.price;
 
-    // Check if already bought
     if (purchaseType === 'buy') {
-      const existing = await Purchase.findOne({ user: req.user._id, book: bookId, type: 'buy' });
+      const existing = await Purchase.findOne({ where: { userId: req.user.id, bookId, type: 'buy' } });
       if (existing) {
         return res.status(400).json({ message: 'You already own this book!' });
       }
     }
 
-    const user = await User.findById(req.user._id);
+    const user = await User.findByPk(req.user.id);
     if (user.walletBalance < price) {
       return res.status(400).json({
         message: `Insufficient wallet balance. Need $${price.toFixed(2)}, have $${user.walletBalance.toFixed(2)}`,
@@ -84,11 +79,9 @@ exports.payWithWallet = async (req, res) => {
       });
     }
 
-    // Debit wallet
     user.walletBalance = Number((user.walletBalance - price).toFixed(2));
     await user.save();
 
-    // Create purchase
     let rentExpiresAt = null;
     if (purchaseType === 'rent') {
       rentExpiresAt = new Date();
@@ -96,27 +89,25 @@ exports.payWithWallet = async (req, res) => {
     }
 
     const purchase = await Purchase.create({
-      user: req.user._id,
-      book: bookId,
+      userId: req.user.id,
+      bookId,
       type: purchaseType,
       pricePaid: price,
       rentExpiresAt,
       stripePaymentId: 'wallet_' + Date.now()
     });
 
-    // Update book stats
     if (purchaseType === 'buy') book.salesCount += 1;
     else book.rentCount += 1;
     await book.save();
 
-    // Record transaction
     await WalletTransaction.create({
-      user: req.user._id,
+      userId: req.user.id,
       type: purchaseType === 'rent' ? 'rental' : 'purchase',
       amount: -price,
       balanceAfter: user.walletBalance,
       description: `${purchaseType === 'buy' ? 'Purchased' : 'Rented'} "${book.title}"`,
-      relatedBook: bookId
+      relatedBookId: bookId
     });
 
     res.json({

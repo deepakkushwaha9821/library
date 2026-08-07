@@ -3,20 +3,16 @@ const Subscription = require('../models/Subscription');
 const Book = require('../models/Book');
 const User = require('../models/User');
 
-// @desc    Process Checkout Session (Stripe Mock & Real Integration)
-// @route   POST /api/orders/checkout
 exports.createCheckoutSession = async (req, res) => {
   try {
     const { bookId, purchaseType, plan } = req.body;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
-    // 1. Subscription Checkout
     if (purchaseType === 'subscription') {
       const currentPeriodEnd = new Date();
-      currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30); // 30-day billing cycle
+      currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
 
-      // Create or update subscription record
-      let sub = await Subscription.findOne({ user: userId });
+      let sub = await Subscription.findOne({ where: { userId } });
       if (sub) {
         sub.status = 'active';
         sub.currentPeriodEnd = currentPeriodEnd;
@@ -24,18 +20,17 @@ exports.createCheckoutSession = async (req, res) => {
         await sub.save();
       } else {
         sub = await Subscription.create({
-          user: userId,
+          userId,
           plan: plan || 'unlimited_catalog',
           status: 'active',
           currentPeriodEnd
         });
       }
 
-      // Update user model state
-      await User.findByIdAndUpdate(userId, {
+      await User.update({
         subscriptionStatus: 'active',
         subscriptionPlan: 'unlimited_catalog'
-      });
+      }, { where: { id: userId } });
 
       return res.json({
         success: true,
@@ -44,8 +39,7 @@ exports.createCheckoutSession = async (req, res) => {
       });
     }
 
-    // 2. Individual Book Buy or Rent Checkout
-    const book = await Book.findById(bookId);
+    const book = await Book.findByPk(bookId);
     if (!book) {
       return res.status(404).json({ message: 'Book not found' });
     }
@@ -56,25 +50,23 @@ exports.createCheckoutSession = async (req, res) => {
     if (purchaseType === 'rent') {
       pricePaid = book.rentPrice;
       rentExpiresAt = new Date();
-      rentExpiresAt.setDate(rentExpiresAt.getDate() + 14); // 14-day rental
+      rentExpiresAt.setDate(rentExpiresAt.getDate() + 14);
     }
 
-    // Check if already purchased buy
-    const existingBuy = await Purchase.findOne({ user: userId, book: bookId, type: 'buy' });
+    const existingBuy = await Purchase.findOne({ where: { userId, bookId, type: 'buy' } });
     if (existingBuy) {
       return res.status(400).json({ message: 'You already own this book outright!' });
     }
 
     const purchase = await Purchase.create({
-      user: userId,
-      book: bookId,
+      userId,
+      bookId,
       type: purchaseType,
       pricePaid,
       rentExpiresAt,
       stripePaymentId: 'ch_mock_' + Date.now()
     });
 
-    // Increment seller counters
     if (purchaseType === 'buy') {
       book.salesCount += 1;
     } else {
@@ -92,28 +84,25 @@ exports.createCheckoutSession = async (req, res) => {
   }
 };
 
-// @desc    Get user's personal library ("My Books" with rental expiry countdowns)
-// @route   GET /api/orders/my-library
 exports.getUserLibrary = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
 
-    // Fetch individual purchases (Buy & Rent)
-    const purchases = await Purchase.find({ user: userId }).populate({
-      path: 'book',
-      populate: { path: 'seller', select: 'name' }
-    }).sort({ createdAt: -1 });
+    const purchases = await Purchase.findAll({
+      where: { userId },
+      include: [{ model: Book, as: 'book', include: [{ model: User, as: 'seller', attributes: ['name'] }] }],
+      order: [['createdAt', 'DESC']]
+    });
 
-    // Separate into active purchases and filter out expired rentals
     const now = new Date();
     const ownedBooks = [];
     const rentedBooks = [];
 
-    purchases.forEach(p => {
+    purchases.forEach((p) => {
       if (!p.book) return;
       if (p.type === 'buy') {
         ownedBooks.push({
-          purchaseId: p._id,
+          purchaseId: p.id,
           book: p.book,
           type: 'buy',
           purchasedAt: p.createdAt
@@ -121,7 +110,7 @@ exports.getUserLibrary = async (req, res) => {
       } else if (p.type === 'rent') {
         const isExpired = p.rentExpiresAt && new Date(p.rentExpiresAt) < now;
         rentedBooks.push({
-          purchaseId: p._id,
+          purchaseId: p.id,
           book: p.book,
           type: 'rent',
           rentExpiresAt: p.rentExpiresAt,
@@ -131,15 +120,14 @@ exports.getUserLibrary = async (req, res) => {
       }
     });
 
-    // Check if user has active subscription
     let subscriptionCatalogBooks = [];
     if (req.user.subscriptionStatus === 'active') {
-      const activeSub = await Subscription.findOne({ user: userId, status: 'active' });
+      const activeSub = await Subscription.findOne({ where: { userId, status: 'active' } });
       if (activeSub && new Date(activeSub.currentPeriodEnd) > now) {
-        subscriptionCatalogBooks = await Book.find({
-          status: 'approved',
-          isIncludedInSubscription: true
-        }).populate('seller', 'name');
+        subscriptionCatalogBooks = await Book.findAll({
+          where: { status: 'approved', isIncludedInSubscription: true },
+          include: [{ model: User, as: 'seller', attributes: ['name'] }]
+        });
       }
     }
 

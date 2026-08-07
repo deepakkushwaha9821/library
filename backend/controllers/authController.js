@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { Op } = require('sequelize');
 const User = require('../models/User');
 
 const generateToken = (id) => {
@@ -8,9 +9,8 @@ const generateToken = (id) => {
   });
 };
 
-// Helper to build user response payload
 const userPayload = (user, token) => ({
-  _id: user._id,
+  _id: user.id,
   name: user.name,
   email: user.email,
   role: user.role,
@@ -22,8 +22,6 @@ const userPayload = (user, token) => ({
   token
 });
 
-// @desc    Register a new user (buyer, seller, or admin with secret key)
-// @route   POST /api/auth/register
 exports.registerUser = async (req, res) => {
   try {
     const { name, email, password, role, adminSecretKey } = req.body;
@@ -36,12 +34,11 @@ exports.registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 6 characters' });
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ where: { email } });
     if (userExists) {
       return res.status(400).json({ message: 'An account with this email already exists' });
     }
 
-    // Role validation — admin requires a secret key
     let assignedRole = role || 'buyer';
     if (assignedRole === 'admin') {
       const validAdminKey = process.env.ADMIN_SECRET_KEY || 'READPULSE_ADMIN_2026';
@@ -60,21 +57,16 @@ exports.registerUser = async (req, res) => {
     });
 
     if (user) {
-      const token = generateToken(user._id);
+      const token = generateToken(user.id);
       res.status(201).json(userPayload(user, token));
     } else {
       res.status(400).json({ message: 'Invalid user data' });
     }
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(400).json({ message: 'An account with this email already exists' });
-    }
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Auth user & get token
-// @route   POST /api/auth/login
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -83,9 +75,9 @@ exports.loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     if (user && (await user.matchPassword(password))) {
-      const token = generateToken(user._id);
+      const token = generateToken(user.id);
       res.json(userPayload(user, token));
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
@@ -95,22 +87,20 @@ exports.loginUser = async (req, res) => {
   }
 };
 
-// @desc    Get current user profile
-// @route   GET /api/auth/me
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-password -resetPasswordToken -resetPasswordExpire');
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpire'] }
+    });
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Toggle seller role for user
-// @route   POST /api/auth/become-seller
 exports.becomeSeller = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findByPk(req.user.id);
     user.role = 'seller';
     user.isSellerApproved = true;
     await user.save();
@@ -118,7 +108,7 @@ exports.becomeSeller = async (req, res) => {
     res.json({
       message: 'Seller status granted successfully!',
       user: {
-        _id: user._id,
+        _id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -130,8 +120,6 @@ exports.becomeSeller = async (req, res) => {
   }
 };
 
-// @desc    Request password reset — generates token, stores hash in DB
-// @route   POST /api/auth/forgot-password
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -140,33 +128,26 @@ exports.forgotPassword = async (req, res) => {
       return res.status(400).json({ message: 'Please provide your email address' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(404).json({ message: 'No account found with that email' });
     }
 
-    // Generate reset token
     const resetToken = user.generateResetToken();
-    await user.save({ validateBeforeSave: false });
+    await user.save();
 
-    // Build reset URL (frontend will handle the UI)
     const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/?reset=${resetToken}`;
-
-    // In production you'd send an email here. For this demo we return the link directly
-    // so the user can click it — simulates the email flow without an SMTP provider.
     res.json({
       success: true,
       message: 'Password reset link generated! In production this would be emailed to you.',
       resetUrl,
-      resetToken // Exposed for demo/portfolio — remove in production
+      resetToken
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Reset password using token
-// @route   POST /api/auth/reset-password/:token
 exports.resetPassword = async (req, res) => {
   try {
     const { password } = req.body;
@@ -176,25 +157,24 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }
 
-    // Hash the incoming token and find user with matching hash + non-expired
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
     const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpire: { $gt: Date.now() }
+      where: {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpire: { [Op.gt]: new Date() }
+      }
     });
 
     if (!user) {
       return res.status(400).json({ message: 'Invalid or expired reset token' });
     }
 
-    // Set new password and clear the reset fields
     user.password = password;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpire = null;
     await user.save();
 
-    const jwtToken = generateToken(user._id);
+    const jwtToken = generateToken(user.id);
     res.json({
       success: true,
       message: 'Password has been reset successfully!',
@@ -205,11 +185,9 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// @desc    Update user profile (name, avatar)
-// @route   PUT /api/auth/profile
 exports.updateProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findByPk(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -219,7 +197,7 @@ exports.updateProfile = async (req, res) => {
 
     const updated = await user.save();
     res.json({
-      _id: updated._id,
+      _id: updated.id,
       name: updated.name,
       email: updated.email,
       role: updated.role,
@@ -231,12 +209,10 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// @desc    Change password (when logged in)
-// @route   PUT /api/auth/change-password
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const user = await User.findById(req.user._id);
+    const user = await User.findByPk(req.user.id);
 
     if (!(await user.matchPassword(currentPassword))) {
       return res.status(401).json({ message: 'Current password is incorrect' });

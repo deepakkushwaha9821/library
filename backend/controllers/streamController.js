@@ -147,7 +147,7 @@ exports.streamEbook = async (req, res) => {
   try {
     const book = req.book;
 
-    const fileUrl = `${req.protocol}://${req.get('host')}/api/download/pdf/${book._id}`;
+    const fileUrl = `${req.protocol}://${req.get('host')}/api/download/pdf/${book.id}`;
 
     let hasPdfOnDisk = false;
     if (book.fileUrl) {
@@ -170,7 +170,7 @@ exports.streamEbook = async (req, res) => {
     const pages = extracted.pages.length > 0 ? extracted.pages : buildReaderPages(extracted.text, book);
 
     res.json({
-      bookId: book._id,
+      bookId: book.id,
       title: book.title,
       authorName: book.authorName,
       category: book.category,

@@ -1,5 +1,3 @@
-const express = require('express');
-const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs');
 const User = require('../models/User');
@@ -12,13 +10,11 @@ const seedDemoData = async () => {
       fs.mkdirSync(ebooksDir, { recursive: true });
     }
 
-    // Wipe all books and populate ONLY the user's 8 real PDF books
-    await Book.deleteMany({});
+    await Book.destroy({ where: {} });
 
-    console.log('Seeding MongoDB database exclusively with the 8 real PDF books...');
+    console.log('Seeding SQLite database with the 8 real PDF books...');
 
-    // Users
-    let seller = await User.findOne({ email: 'seller@readpulse.com' });
+    let seller = await User.findOne({ where: { email: 'seller@readpulse.com' } });
     if (!seller) {
       seller = await User.create({
         name: 'Elena Rostova',
@@ -33,7 +29,7 @@ const seedDemoData = async () => {
     const adminPassword = process.env.ADMIN_PASSWORD || 'adminpassword123';
     const adminName = process.env.ADMIN_NAME || 'System Admin';
 
-    let admin = await User.findOne({ email: adminEmail });
+    let admin = await User.findOne({ where: { email: adminEmail } });
     if (!admin) {
       admin = await User.create({
         name: adminName,
@@ -43,13 +39,12 @@ const seedDemoData = async () => {
         isSellerApproved: true
       });
     } else {
-      // Always sync admin password from .env
       admin.password = adminPassword;
       admin.name = adminName;
       await admin.save();
     }
 
-    let buyer = await User.findOne({ email: 'buyer@readpulse.com' });
+    let buyer = await User.findOne({ where: { email: 'buyer@readpulse.com' } });
     if (!buyer) {
       buyer = await User.create({
         name: 'Alex Morgan',
@@ -59,12 +54,11 @@ const seedDemoData = async () => {
       });
     }
 
-    // EXCLUSIVELY REAL 8 PDF BOOKS
     const realBooksOnly = [
       {
         title: "Alice's Adventures in Wonderland",
         authorName: 'Lewis Carroll',
-        seller: seller._id,
+        sellerId: seller.id,
         format: 'ebook',
         fileUrl: '/uploads/ebooks/alices-adventures-in-wonderland.pdf',
         coverUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600',
@@ -83,7 +77,7 @@ const seedDemoData = async () => {
       {
         title: 'Frankenstein',
         authorName: 'Mary Shelley',
-        seller: seller._id,
+        sellerId: seller.id,
         format: 'ebook',
         fileUrl: '/uploads/ebooks/frankenstein.pdf',
         coverUrl: 'https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=600',
@@ -102,7 +96,7 @@ const seedDemoData = async () => {
       {
         title: 'Little Women',
         authorName: 'Louisa May Alcott',
-        seller: seller._id,
+        sellerId: seller.id,
         format: 'ebook',
         fileUrl: '/uploads/ebooks/little-women.pdf',
         coverUrl: 'https://images.unsplash.com/photo-1476275466078-4007374efbbe?w=600',
@@ -121,7 +115,7 @@ const seedDemoData = async () => {
       {
         title: 'Pride and Prejudice',
         authorName: 'Jane Austen',
-        seller: seller._id,
+        sellerId: seller.id,
         format: 'ebook',
         fileUrl: '/uploads/ebooks/pride-and-prejudice.pdf',
         coverUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600',
@@ -140,7 +134,7 @@ const seedDemoData = async () => {
       {
         title: 'The Prince',
         authorName: 'Niccolò Machiavelli',
-        seller: seller._id,
+        sellerId: seller.id,
         format: 'ebook',
         fileUrl: '/uploads/ebooks/the-prince.pdf',
         coverUrl: 'https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600',
@@ -159,7 +153,7 @@ const seedDemoData = async () => {
       {
         title: 'The Time Machine',
         authorName: 'H.G. Wells',
-        seller: seller._id,
+        sellerId: seller.id,
         format: 'ebook',
         fileUrl: '/uploads/ebooks/the-time-machine.pdf',
         coverUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600',
@@ -178,7 +172,7 @@ const seedDemoData = async () => {
       {
         title: 'The War of the Worlds',
         authorName: 'H.G. Wells',
-        seller: seller._id,
+        sellerId: seller.id,
         format: 'ebook',
         fileUrl: '/uploads/ebooks/the-war-of-the-worlds.pdf',
         coverUrl: 'https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=600',
@@ -197,7 +191,7 @@ const seedDemoData = async () => {
       {
         title: 'Treasure Island',
         authorName: 'Robert Louis Stevenson',
-        seller: seller._id,
+        sellerId: seller.id,
         format: 'ebook',
         fileUrl: '/uploads/ebooks/treasure-island.pdf',
         coverUrl: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?w=600',
@@ -215,9 +209,10 @@ const seedDemoData = async () => {
       }
     ];
 
-    await Book.insertMany(realBooksOnly);
-    console.log('Successfully seeded MongoDB exclusively with the 8 real PDF books!');
+    await Book.bulkCreate(realBooksOnly);
+    console.log('Successfully seeded SQLite with the 8 real PDF books!');
   } catch (error) {
+
     console.error('Error seeding demo data:', error);
   }
 };

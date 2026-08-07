@@ -3,20 +3,17 @@ const User = require('../models/User');
 const Purchase = require('../models/Purchase');
 const Subscription = require('../models/Subscription');
 
-// @desc    Get Admin System Metrics
-// @route   GET /api/admin/metrics
 exports.getAdminMetrics = async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments();
-    const totalSellers = await User.countDocuments({ role: 'seller' });
-    const totalBooks = await Book.countDocuments();
-    const pendingBooksCount = await Book.countDocuments({ status: 'pending' });
-    const approvedBooksCount = await Book.countDocuments({ status: 'approved' });
+    const totalUsers = await User.count();
+    const totalSellers = await User.count({ where: { role: 'seller' } });
+    const totalBooks = await Book.count();
+    const pendingBooksCount = await Book.count({ where: { status: 'pending' } });
+    const approvedBooksCount = await Book.count({ where: { status: 'approved' } });
 
-    const totalPurchases = await Purchase.find();
+    const totalPurchases = await Purchase.findAll();
     const grossRevenue = totalPurchases.reduce((sum, p) => sum + p.pricePaid, 0);
-
-    const activeSubscribersCount = await Subscription.countDocuments({ status: 'active' });
+    const activeSubscribersCount = await Subscription.count({ where: { status: 'active' } });
 
     res.json({
       totalUsers,
@@ -32,27 +29,26 @@ exports.getAdminMetrics = async (req, res) => {
   }
 };
 
-// @desc    Get pending books for moderation
-// @route   GET /api/admin/pending-books
 exports.getPendingBooks = async (req, res) => {
   try {
-    const pendingBooks = await Book.find({ status: 'pending' }).populate('seller', 'name email');
+    const pendingBooks = await Book.findAll({
+      where: { status: 'pending' },
+      include: [{ model: User, as: 'seller', attributes: ['name', 'email'] }]
+    });
     res.json(pendingBooks);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Approve or reject a book upload
-// @route   PUT /api/admin/moderate-book/:id
 exports.moderateBook = async (req, res) => {
   try {
-    const { status } = req.body; // 'approved' or 'rejected'
+    const { status } = req.body;
     if (!['approved', 'rejected'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    const book = await Book.findById(req.params.id);
+    const book = await Book.findByPk(req.params.id);
     if (!book) {
       return res.status(404).json({ message: 'Book not found' });
     }

@@ -19,7 +19,7 @@ exports.downloadBookPDF = async (req, res) => {
 
     // Fallback: Generate clean text file / PDF download payload for demo books
     const filename = `${book.title.replace(/[^a-zA-Z0-9]/g, '_')}_Digital_Copy.txt`;
-    const demoContent = `====================================================\nREADPULSE OFFICIAL DIGITAL COPY\nTitle: ${book.title}\nAuthor: ${book.authorName}\nLicense Type: ${req.accessType.toUpperCase()}\nIssued To: User ID ${req.user._id}\nDate: ${new Date().toISOString()}\n====================================================\n\n${book.sampleEbookText || "Thank you for buying/renting this book. Full digital content is protected under ReadPulse DRM-lite terms."}\n\n====================================================\nEnd of Document.\n`;
+    const demoContent = `====================================================\nREADPULSE OFFICIAL DIGITAL COPY\nTitle: ${book.title}\nAuthor: ${book.authorName}\nLicense Type: ${req.accessType.toUpperCase()}\nIssued To: User ID ${req.user.id}\nDate: ${new Date().toISOString()}\n====================================================\n\n${book.sampleEbookText || "Thank you for buying/renting this book. Full digital content is protected under ReadPulse DRM-lite terms."}\n\n====================================================\nEnd of Document.\n`;
 
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');

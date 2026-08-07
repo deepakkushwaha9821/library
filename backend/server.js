@@ -9,9 +9,11 @@ dotenv.config();
 
 const app = express();
 
-// Connect MongoDB
+// Connect SQLite
 connectDB().then(() => {
   seedDemoData();
+}).catch((err) => {
+  console.error('Failed to initialize database', err);
 });
 
 // Middleware
@@ -35,7 +37,7 @@ app.use('/api/download', require('./routes/downloadRoutes'));
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
-    system: 'ReadPulse MongoDB-Exclusive Platform',
+    system: 'ReadPulse SQLite Platform',
     timestamp: new Date()
   });
 });

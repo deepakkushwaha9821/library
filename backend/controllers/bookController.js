@@ -1,62 +1,73 @@
+const { Op } = require('sequelize');
 const Book = require('../models/Book');
 const Review = require('../models/Review');
+const User = require('../models/User');
 
-// @desc    Get all books (Marketplace catalog with filter/search)
-// @route   GET /api/books
+const buildBookOrder = (sort) => {
+  switch (sort) {
+    case 'price-low': return [['price', 'ASC']];
+    case 'price-high': return [['price', 'DESC']];
+    case 'rating': return [['averageRating', 'DESC']];
+    default: return [['createdAt', 'DESC']];
+  }
+};
+
 exports.getBooks = async (req, res) => {
   try {
     const { category, format, search, subscriptionOnly, sort } = req.query;
-    let query = { status: 'approved' };
+    const where = { status: 'approved' };
 
     if (category && category !== 'All') {
-      query.category = category;
+      where.category = category;
     }
 
     if (format && format !== 'All') {
-      query.format = { $in: [format, 'both'] };
+      where.format = { [Op.in]: [format, 'both'] };
     }
 
     if (subscriptionOnly === 'true') {
-      query.isIncludedInSubscription = true;
+      where.isIncludedInSubscription = true;
     }
 
     if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { authorName: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+      const normalizedSearch = search.toLowerCase();
+      where[Op.or] = [
+        { title: { [Op.like]: `%${normalizedSearch}%` } },
+        { authorName: { [Op.like]: `%${normalizedSearch}%` } },
+        { description: { [Op.like]: `%${normalizedSearch}%` } }
       ];
     }
 
-    let sortOptions = { createdAt: -1 };
-    if (sort === 'price-low') sortOptions = { price: 1 };
-    if (sort === 'price-high') sortOptions = { price: -1 };
-    if (sort === 'rating') sortOptions = { averageRating: -1 };
+    const books = await Book.findAll({
+      where,
+      include: [{ model: User, as: 'seller', attributes: ['name', 'email'] }],
+      order: buildBookOrder(sort)
+    });
 
-    const books = await Book.find(query).populate('seller', 'name email').sort(sortOptions);
     res.json(books);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get single book details
-// @route   GET /api/books/:id
 exports.getBookById = async (req, res) => {
   try {
-    const book = await Book.findById(req.params.id).populate('seller', 'name email');
+    const book = await Book.findByPk(req.params.id, {
+      include: [{ model: User, as: 'seller', attributes: ['name', 'email'] }]
+    });
     if (!book) {
       return res.status(404).json({ message: 'Book not found' });
     }
-    const reviews = await Review.find({ book: req.params.id }).populate('user', 'name avatar');
+    const reviews = await Review.findAll({
+      where: { bookId: req.params.id },
+      include: [{ model: User, as: 'user', attributes: ['name', 'avatar'] }]
+    });
     res.json({ book, reviews });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Upload / Publish a new book (Seller / Admin)
-// @route   POST /api/books
 exports.createBook = async (req, res) => {
   try {
     const {
@@ -96,19 +107,19 @@ exports.createBook = async (req, res) => {
     const book = await Book.create({
       title,
       authorName: authorName || req.user.name,
-      seller: req.user._id,
+      sellerId: req.user.id,
       format: format || 'both',
       fileUrl,
       audioUrls,
       sampleAudioUrl,
-      sampleEbookText: sampleEbookText || "Free preview chapter of " + title,
+      sampleEbookText: sampleEbookText || 'Free preview chapter of ' + title,
       coverUrl,
       price: Number(price) || 9.99,
       rentPrice: Number(rentPrice) || 2.99,
       isIncludedInSubscription: isIncludedInSubscription === 'true' || isIncludedInSubscription === true,
       category: category || 'Fiction',
       description,
-      status: req.user.role === 'admin' ? 'approved' : 'pending' // Admin auto-approves, seller goes to moderation
+      status: req.user.role === 'admin' ? 'approved' : 'pending'
     });
 
     res.status(201).json(book);
@@ -117,16 +128,16 @@ exports.createBook = async (req, res) => {
   }
 };
 
-// @desc    Get books uploaded by seller (Seller Analytics & Dashboard)
-// @route   GET /api/books/seller/my-books
 exports.getSellerBooks = async (req, res) => {
   try {
-    const books = await Book.find({ seller: req.user._id }).sort({ createdAt: -1 });
-    
-    // Calculate seller metrics
+    const books = await Book.findAll({
+      where: { sellerId: req.user.id },
+      order: [['createdAt', 'DESC']]
+    });
+
     const totalSalesRevenue = books.reduce((acc, b) => acc + (b.salesCount * b.price), 0);
     const totalRentalRevenue = books.reduce((acc, b) => acc + (b.rentCount * b.rentPrice), 0);
-    const totalEarnings = (totalSalesRevenue + totalRentalRevenue) * 0.85; // 85% creator payout
+    const totalEarnings = (totalSalesRevenue + totalRentalRevenue) * 0.85;
 
     res.json({
       books,
