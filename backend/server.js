@@ -17,7 +17,15 @@ connectDB().then(() => {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://library-9edms2k1c-deepak-kushwahas-projects.vercel.app"
+  ],
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
