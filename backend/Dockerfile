@@ -6,7 +6,6 @@ RUN apt-get update && apt-get install -y \
     python3 \
     make \
     g++ \
-    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
