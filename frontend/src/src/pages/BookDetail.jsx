@@ -87,7 +87,7 @@ const BookDetail = ({ bookId, onBack, onOpenReader, onOpenWallet }) => {
   };
 
   const handleDownloadPDF = () => {
-    const downloadUrl = `http://localhost:5000/api/download/pdf/${book.id}`;
+    const downloadUrl = `${import.meta.env.VITE_API_BASE_URL}/download/pdf/${book.id}`;
     const token = user?.token;
     
     // Trigger download with auth header link
