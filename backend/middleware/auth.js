@@ -1,8 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-
-
 const protect = async (req, res, next) => {
   console.log("========== REQUEST HEADERS ==========");
   console.log(req.headers);
@@ -54,15 +52,14 @@ const protect = async (req, res, next) => {
   });
 };
 
-module.exports = { protect, authorize };
-
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        message: `User role '${req.user ? req.user.role : 'none'}' is not authorized to access this route` 
+      return res.status(403).json({
+        message: `User role '${req.user ? req.user.role : 'none'}' is not authorized to access this route`
       });
     }
+
     next();
   };
 };
