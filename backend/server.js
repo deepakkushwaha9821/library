@@ -25,6 +25,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads/covers', express.static(path.join(__dirname, 'uploads/covers')));
 
 // API Routes
+app.get("/", (req, res) => {
+  res.json({
+    status: "OK",
+    message: "Backend is running 🚀"
+  });
+});
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/books', require('./routes/bookRoutes'));
 app.use('/api/stream', require('./routes/streamRoutes'));
