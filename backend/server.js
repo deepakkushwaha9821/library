@@ -17,15 +17,7 @@ connectDB().then(() => {
 });
 
 // Middleware
-app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://library-9edms2k1c-deepak-kushwahas-projects.vercel.app"
-  ],
-  credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization"],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-}));
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -33,12 +25,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads/covers', express.static(path.join(__dirname, 'uploads/covers')));
 
 // API Routes
-app.get("/", (req, res) => {
-  res.json({
-    status: "OK",
-    message: "Backend is running 🚀"
-  });
-});
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/books', require('./routes/bookRoutes'));
 app.use('/api/stream', require('./routes/streamRoutes'));
