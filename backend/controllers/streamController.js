@@ -154,9 +154,11 @@ exports.streamEbook = async (req, res) => {
   try {
     const book = req.book;
 
-    const fileUrl = `${req.protocol}://${req.get(
-      "host"
-    )}/api/download/pdf/${book.id}`;
+    const baseUrl =
+    process.env.BASE_URL ||
+    `https://${req.get("host")}`;
+
+const fileUrl = `${baseUrl}/api/download/pdf/${book.id}`;
 
     let hasPdfOnDisk = false;
 
