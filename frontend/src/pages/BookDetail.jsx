@@ -37,8 +37,8 @@ const BookDetail = ({ bookId, onBack, onOpenReader, onOpenWallet }) => {
     if (!user) return;
     try {
       const res = await API.get('/orders/my-library');
-      const owned = res.data.ownedBooks?.some(b => b.book._id === bookId);
-      const rented = res.data.rentedBooks?.some(b => b.book._id === bookId && !b.isExpired);
+     const owned = res.data.ownedBooks?.some(b => b.book.id === bookId);
+const rented = res.data.rentedBooks?.some(b => b.book.id === bookId && !b.isExpired);
       setUserOwnership({ isOwned: owned, isRented: rented });
     } catch (e) {
       console.error('Error checking ownership:', e);
@@ -52,7 +52,7 @@ const BookDetail = ({ bookId, onBack, onOpenReader, onOpenWallet }) => {
     }
     try {
       setCheckoutLoading(true);
-      const res = await API.post('/orders/checkout', { bookId: book._id, purchaseType });
+      const res = await API.post('/orders/checkout', { bookId: book.id, purchaseType });
       setPurchaseSuccess(res.data.message);
       checkOwnership();
     } catch (error) {
@@ -69,7 +69,7 @@ const BookDetail = ({ bookId, onBack, onOpenReader, onOpenWallet }) => {
     }
     try {
       setCheckoutLoading(true);
-      const res = await API.post('/wallet/pay', { bookId: book._id, purchaseType });
+      const res = await API.post('/wallet/pay', { bookId: book.id, purchaseType });
       setPurchaseSuccess(res.data.message);
       updateWalletBalance(res.data.newBalance);
       checkOwnership();
@@ -87,7 +87,7 @@ const BookDetail = ({ bookId, onBack, onOpenReader, onOpenWallet }) => {
   };
 
   const handleDownloadPDF = () => {
-    const downloadUrl = `${API.defaults.baseURL}/download/pdf/${book._id}`;
+    const downloadUrl = `http://localhost:5000/api/download/pdf/${book.id}`;
     const token = user?.token;
     
     // Trigger download with auth header link
@@ -113,7 +113,7 @@ const BookDetail = ({ bookId, onBack, onOpenReader, onOpenWallet }) => {
   const handlePlaySample = () => {
     if (!book) return;
     playBookAudio({
-      bookId: book._id,
+      bookId: book.id,
       title: `${book.title}`,
       authorName: book.authorName,
       coverUrl: book.coverUrl,
@@ -235,7 +235,7 @@ const BookDetail = ({ bookId, onBack, onOpenReader, onOpenWallet }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                   {book.format !== 'audiobook' && (
                     <button
-                      onClick={() => onOpenReader(book._id, book.title)}
+                      onClick={() => onOpenReader(book.id, book.title)}
                       className="bg-[#a3e635] hover:bg-[#8fd02c] text-slate-900 border-2 border-slate-900 font-black uppercase text-xs py-2.5 shadow-[2px_2px_0_0_rgba(15,23,42,1)] flex items-center justify-center gap-1.5"
                     >
                       <BookOpen className="w-4 h-4" /> In-App Reader
@@ -253,7 +253,7 @@ const BookDetail = ({ bookId, onBack, onOpenReader, onOpenWallet }) => {
                   {book.format !== 'ebook' && (
                     <button
                       onClick={() => playBookAudio({
-                        bookId: book._id,
+                        bookId: book.id,
                         title: book.title,
                         authorName: book.authorName,
                         coverUrl: book.coverUrl,
