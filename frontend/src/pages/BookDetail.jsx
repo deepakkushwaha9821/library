@@ -87,7 +87,7 @@ const BookDetail = ({ bookId, onBack, onOpenReader, onOpenWallet }) => {
   };
 
   const handleDownloadPDF = () => {
-    const downloadUrl = `http://localhost:5000/api/download/pdf/${book._id}`;
+    const downloadUrl = `${API.defaults.baseURL}/download/pdf/${book._id}`;
     const token = user?.token;
     
     // Trigger download with auth header link
